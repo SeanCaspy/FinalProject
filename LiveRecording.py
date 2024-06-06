@@ -1,3 +1,4 @@
+from flask import Flask, request, Response
 import numpy as np
 import scipy.signal as signal
 import pyaudio
@@ -24,8 +25,6 @@ frame = 0.0 * np.ones((rows, cols, 3))
 
 # The D(z) matrix:
 def Dmatrix(samples):
-    # implementation of the delay matrix D(z)
-    # Delay elements:
     out = np.zeros(N)
     out[0:int(N / 2)] = Dmatrix.z
     Dmatrix.z = samples[0:int(N / 2)]
@@ -36,10 +35,7 @@ def Dmatrix(samples):
 Dmatrix.z = np.zeros(int(N / 2))
 
 
-# The inverse D(z) matrix:
 def Dmatrixinv(samples):
-    # implementation of the delay matrix D(z)
-    # Delay elements:
     out = np.zeros(N)
     out[int(N / 2):N] = Dmatrixinv.z
     Dmatrixinv.z = samples[int(N / 2):N]
@@ -56,21 +52,17 @@ Fmatrix[0:int(N / 2), 0:int(N / 2)] = np.fliplr(np.diag(fcoeff[0:int(N / 2)]))
 Fmatrix[int(N / 2):N, 0:int(N / 2)] = np.diag(fcoeff[int(N / 2):N])
 Fmatrix[0:int(N / 2), int(N / 2):N] = np.diag(fcoeff[N:int(N + N / 2)])
 Fmatrix[int(N / 2):N, int(N / 2):N] = -np.fliplr(np.diag(fcoeff[int(N + N / 2):(2 * N)]))
-# The inverse F matrix:
 Finv = np.linalg.inv(Fmatrix)
 
 
 # The DCT4 transform:
 def DCT4(samples):
-    # use a DCT3 to implement a DCT4:
     samplesup = np.zeros(2 * N)
-    # upsample signal:
     samplesup[1::2] = samples
     y = spfft.dct(samplesup, type=3) / 2
     return y[0:N]
 
 
-# The complete MDCT, Analysis:
 def MDCT(samples):
     y = np.dot(samples, Fmatrix)
     y = Dmatrix(y)
@@ -123,7 +115,9 @@ def run_mdct(toggle_run):
         frame[0:(rows - 1), :] = frame[1:rows, :]
         y = MDCT(samples[0:fftlen])
 
-        yfilt = y
+        # Noise Reduction Filter
+        threshold = 10
+        yfilt = y * (np.abs(y) > threshold)
 
         R = 0.25 * np.log((np.abs(yfilt / np.sqrt(fftlen)) + 1)) / np.log(10.0)
 
@@ -157,6 +151,7 @@ stream = p.open(format=FORMAT,
                 input=True,
                 output=True,
                 frames_per_buffer=CHUNK_SIZE)
+
 
 if __name__ == '__main__':
     run_mdct(toggle_run)
